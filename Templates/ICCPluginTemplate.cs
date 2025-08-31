@@ -1,262 +1,295 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
+using System.Linq; // Added for .OfType()
 
 namespace Ink_Canvas.Helpers.Plugins
 {
     /// <summary>
-    /// 示例插件
+    /// 插件模板 V2，展示如何使用优化后的接口结构
+    /// 注意：实际开发时，请将此类移到单独的程序集中
     /// </summary>
-    public class ExamplePlugin : EnhancedPluginBase
+    public class PluginTemplateV2 : EnhancedPluginBaseV2
     {
-        private Button _toolbarButton;
-        private MenuItem _menuItem;
-        private bool _isDrawingMode = false;
+        #region 插件基本信息
 
-        public override string Name => "示例插件";
+        /// <summary>
+        /// 插件名称
+        /// </summary>
+        public override string Name => "插件模板 V2";
 
-        public override string Description => "这是一个示例插件";
+        /// <summary>
+        /// 插件描述
+        /// </summary>
+        public override string Description => "这是一个使用优化接口结构的插件开发模板，展示如何分类使用不同的服务接口。";
 
-        public override Version Version => new Version(1, 0, 0);
+        /// <summary>
+        /// 插件版本
+        /// </summary>
+        public override Version Version => new Version(2, 0, 0);
 
-        public override string Author => "ICC开发团队";
+        /// <summary>
+        /// 插件作者
+        /// </summary>
+        public override string Author => "ICC CE 团队";
 
-        public override bool IsBuiltIn => true;
+        /// <summary>
+        /// 是否为内置插件（外部插件请返回false）
+        /// </summary>
+        public override bool IsBuiltIn => false;
 
-        public override void OnStartup()
+        #endregion
+
+        #region 插件生命周期
+
+        /// <summary>
+        /// 插件初始化
+        /// 在这里进行插件的初始化工作，如加载配置、注册事件等
+        /// </summary>
+        public override void Initialize()
         {
-            base.OnStartup();
+            // 先调用基类方法，这样会设置插件ID和记录日志
+            base.Initialize();
 
-            // 加载插件配置
-            _isDrawingMode = PluginConfigurationManager.GetConfiguration(Name, "IsDrawingMode", false);
+            // 示例：记录初始化信息
+            LogHelper.WriteLogToFile($"插件 {Name} 开始初始化");
 
-            // 注册事件处理器
-            PluginService.RegisterEventHandler("CanvasCleared", OnCanvasCleared);
-            PluginService.RegisterEventHandler("PageChanged", OnPageChanged);
+            // 示例：加载配置
+            LoadConfig();
 
-            LogHelper.WriteLogToFile($"示例插件已启动，绘制模式: {_isDrawingMode}");
+            // 示例：注册自定义事件
+            RegisterEventHandler("CanvasCleared", OnCanvasCleared);
+            RegisterEventHandler("DrawingModeChanged", OnDrawingModeChanged);
+
+            LogHelper.WriteLogToFile($"插件 {Name} 初始化完成");
         }
 
-        public override void OnShutdown()
+        /// <summary>
+        /// 启用插件
+        /// 在这里激活插件的功能
+        /// </summary>
+        public override void Enable()
         {
-            // 注销事件处理器
-            PluginService.UnregisterEventHandler("CanvasCleared", OnCanvasCleared);
-            PluginService.UnregisterEventHandler("PageChanged", OnPageChanged);
+            if (IsEnabled) return; // 防止重复启用
 
-            base.OnShutdown();
+            base.Enable();
+
+            // 示例：显示启用通知
+            ShowNotification($"插件 {Name} 已启用", NotificationType.Success);
+
+            // 示例：获取当前状态
+            var currentMode = CurrentDrawingMode;
+            LogHelper.WriteLogToFile($"当前绘制模式: {currentMode}");
+
+            // 示例：设置一些默认配置
+            SetSetting("PluginTemplateV2.Enabled", true);
+            SaveSettings();
         }
 
-        public override MenuItem[] GetMenuItems()
+        /// <summary>
+        /// 禁用插件
+        /// 在这里停用插件的功能
+        /// </summary>
+        public override void Disable()
         {
-            if (_menuItem == null)
-            {
-                _menuItem = new MenuItem
-                {
-                    Header = "示例插件",
-                    Icon = new TextBlock { Text = "🎨", FontSize = 16 }
-                };
+            if (!IsEnabled) return; // 防止重复禁用
 
-                var toggleDrawingModeItem = new MenuItem
-                {
-                    Header = "切换绘制模式",
-                    Icon = new TextBlock { Text = "✏️", FontSize = 16 }
-                };
-                toggleDrawingModeItem.Click += (s, e) => ToggleDrawingMode();
+            base.Disable();
 
-                var clearCanvasItem = new MenuItem
-                {
-                    Header = "清除画布",
-                    Icon = new TextBlock { Text = "🗑️", FontSize = 16 }
-                };
-                clearCanvasItem.Click += (s, e) => ClearCanvas();
+            // 示例：显示禁用通知
+            ShowNotification($"插件 {Name} 已禁用", NotificationType.Warning);
 
-                var addShapeItem = new MenuItem
-                {
-                    Header = "添加形状",
-                    Icon = new TextBlock { Text = "🔷", FontSize = 16 }
-                };
-                addShapeItem.Click += (s, e) => AddShape();
-
-                var showInfoItem = new MenuItem
-                {
-                    Header = "显示信息",
-                    Icon = new TextBlock { Text = "ℹ️", FontSize = 16 }
-                };
-                showInfoItem.Click += (s, e) => ShowInfo();
-
-                _menuItem.Items.Add(toggleDrawingModeItem);
-                _menuItem.Items.Add(clearCanvasItem);
-                _menuItem.Items.Add(addShapeItem);
-                _menuItem.Items.Add(new Separator());
-                _menuItem.Items.Add(showInfoItem);
-            }
-
-            return new[] { _menuItem };
+            // 示例：保存禁用状态
+            SetSetting("PluginTemplateV2.Enabled", false);
+            SaveSettings();
         }
 
-        public override Button[] GetToolbarButtons()
+        /// <summary>
+        /// 插件卸载时的清理工作
+        /// </summary>
+        public override void Cleanup()
         {
-            if (_toolbarButton == null)
-            {
-                _toolbarButton = new Button
-                {
-                    Content = "🎨",
-                    ToolTip = "示例插件 - 点击切换绘制模式",
-                    Width = 32,
-                    Height = 32,
-                    Margin = new Thickness(2),
-                    Background = new SolidColorBrush(Colors.Transparent),
-                    BorderBrush = new SolidColorBrush(Colors.Gray),
-                    BorderThickness = new Thickness(1)
-                };
+            // 示例：注销事件处理器
+            UnregisterEventHandler("CanvasCleared", OnCanvasCleared);
+            UnregisterEventHandler("DrawingModeChanged", OnDrawingModeChanged);
 
-                _toolbarButton.Click += (s, e) => ToggleDrawingMode();
-            }
-
-            return new[] { _toolbarButton };
+            base.Cleanup();
         }
 
-        public override string GetStatusBarInfo()
+        #endregion
+
+        #region 插件设置界面
+
+        /// <summary>
+        /// 获取插件设置界面
+        /// </summary>
+        /// <returns>插件设置界面</returns>
+        public override UserControl GetSettingsView()
         {
-            return $"示例插件 - 绘制模式: {(_isDrawingMode ? "开启" : "关闭")} | 当前页面: {PluginService.CurrentPageIndex + 1}/{PluginService.TotalPageCount}";
+            // 创建插件设置界面
+            return new PluginTemplateV2SettingsControl();
         }
 
-        public override void OnConfigurationChanged()
+        #endregion
+
+        #region 插件功能方法
+
+        /// <summary>
+        /// 示例方法：执行一些功能
+        /// </summary>
+        public void DoSomething()
         {
-            base.OnConfigurationChanged();
+            if (!IsEnabled) return;
 
-            // 更新UI状态
-            UpdateUIState();
-        }
-
-        private void ToggleDrawingMode()
-        {
-            _isDrawingMode = !_isDrawingMode;
-
-            // 保存配置
-            PluginConfigurationManager.SetConfiguration(Name, "IsDrawingMode", _isDrawingMode);
-
-            // 更新UI状态
-            UpdateUIState();
-
-            // 显示通知
-            PluginService.ShowNotification($"绘制模式已{( _isDrawingMode ? "开启" : "关闭")}", NotificationType.Info);
-
-            LogHelper.WriteLogToFile($"示例插件绘制模式已切换为: {(_isDrawingMode ? "开启" : "关闭")}");
-        }
-
-        private void ClearCanvas()
-        {
-            if (PluginService.ShowConfirmDialog("确定要清除当前画布吗？", "确认清除"))
-            {
-                PluginService.ClearCanvas();
-                PluginService.ShowNotification("画布已清除", NotificationType.Success);
-                LogHelper.WriteLogToFile("示例插件已清除画布");
-            }
-        }
-
-        private void AddShape()
-        {
             try
             {
-                var canvas = PluginService.CurrentCanvas;
-                if (canvas != null)
+                // 示例：使用获取服务
+                var currentMode = GetService.CurrentDrawingMode;
+                var canUndo = GetService.CanUndo;
+
+                // 示例：使用窗口服务
+                ShowNotification($"当前模式: {currentMode}, 可撤销: {canUndo}", NotificationType.Info);
+
+                // 示例：使用操作服务
+                if (ShowConfirmDialog("是否要清除画布？", "确认操作"))
                 {
-                    // 创建一个简单的矩形
-                    var rectangle = new Rectangle
-                    {
-                        Width = 100,
-                        Height = 60,
-                        Fill = new SolidColorBrush(Colors.LightBlue),
-                        Stroke = new SolidColorBrush(Colors.Blue),
-                        StrokeThickness = 2
-                    };
-
-                    // 设置位置（居中）
-                    Canvas.SetLeft(rectangle, (canvas.ActualWidth - rectangle.Width) / 2);
-                    Canvas.SetTop(rectangle, (canvas.ActualHeight - rectangle.Height) / 2);
-
-                    // 添加到画布
-                    canvas.Children.Add(rectangle);
-
-                    PluginService.ShowNotification("已添加形状", NotificationType.Success);
-                    LogHelper.WriteLogToFile("示例插件已添加形状到画布");
+                    ActionService.ClearCanvas();
+                    ShowNotification("画布已清除", NotificationType.Success);
                 }
             }
             catch (Exception ex)
             {
-                PluginService.ShowNotification($"添加形状失败: {ex.Message}", NotificationType.Error);
-                LogHelper.WriteLogToFile($"示例插件添加形状时出错: {ex.Message}", LogHelper.LogType.Error);
+                LogHelper.WriteLogToFile($"执行插件功能时出错: {ex.Message}", LogHelper.LogType.Error);
+                ShowNotification($"执行失败: {ex.Message}", NotificationType.Error);
             }
         }
 
-        private void ShowInfo()
+        /// <summary>
+        /// 示例方法：演示分类使用服务接口
+        /// </summary>
+        public void DemonstrateServiceUsage()
         {
-            var info = $"示例插件信息:\n" +
-                      $"名称: {Name}\n" +
-                      $"版本: {Version}\n" +
-                      $"作者: {Author}\n" +
-                      $"状态: {(IsEnabled ? "已启用" : "已禁用")}\n" +
-                      $"绘制模式: {(_isDrawingMode ? "开启" : "关闭")}\n" +
-                      $"当前页面: {PluginService.CurrentPageIndex + 1}/{PluginService.TotalPageCount}\n" +
-                      $"画布数量: {PluginService.TotalPageCount}\n" +
-                      $"主题: {(PluginService.IsDarkTheme ? "深色" : "浅色")}\n" +
-                      $"模式: {(PluginService.IsWhiteboardMode ? "白板" : "画板")}";
+            // 1. 使用获取服务 - 获取各种状态和信息
+            var mainWindow = GetService.MainWindow;
+            var currentCanvas = GetService.CurrentCanvas;
+            var isDarkTheme = GetService.IsDarkTheme;
+            var currentInkColor = GetService.CurrentInkColor;
 
-            PluginService.ShowNotification(info, NotificationType.Info);
-        }
-
-        private void UpdateUIState()
-        {
-            try
+            // 2. 使用窗口服务 - 处理窗口和用户交互
+            ShowNotification("演示服务使用", NotificationType.Info);
+            var userInput = ShowInputDialog("请输入一些文本:", "输入测试", "默认值");
+            
+            if (ShowConfirmDialog($"您输入的是: {userInput}\n是否继续？", "确认"))
             {
-                if (_toolbarButton != null)
-                {
-                    _toolbarButton.Background = _isDrawingMode 
-                        ? new SolidColorBrush(Colors.LightGreen) 
-                        : new SolidColorBrush(Colors.Transparent);
-                }
-
-                if (_menuItem != null)
-                {
-                    var toggleItem = _menuItem.Items[0] as MenuItem;
-                    if (toggleItem != null)
-                    {
-                        toggleItem.Header = $"绘制模式: {(_isDrawingMode ? "开启" : "关闭")}";
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                LogHelper.WriteLogToFile($"示例插件更新UI状态时出错: {ex.Message}", LogHelper.LogType.Error);
+                // 3. 使用操作服务 - 执行各种操作
+                ActionService.SetInkColor(System.Windows.Media.Colors.Red);
+                ActionService.SetDrawingMode(1);
+                
+                ShowNotification("设置已应用", NotificationType.Success);
             }
         }
 
+        #endregion
+
+        #region 事件处理器
+
+        /// <summary>
+        /// 画布清除事件处理器
+        /// </summary>
         private void OnCanvasCleared(object sender, EventArgs e)
         {
-            LogHelper.WriteLogToFile("示例插件收到画布清除事件");
-            
-            // 可以在这里执行一些清理工作
-            if (_isDrawingMode)
+            if (IsEnabled)
             {
-                PluginService.ShowNotification("画布已清除，绘制模式已自动关闭", NotificationType.Warning);
-                _isDrawingMode = false;
-                PluginConfigurationManager.SetConfiguration(Name, "IsDrawingMode", false);
-                UpdateUIState();
+                ShowNotification("画布已被清除", NotificationType.Info);
             }
         }
 
-        private void OnPageChanged(object sender, EventArgs e)
+        /// <summary>
+        /// 绘制模式变更事件处理器
+        /// </summary>
+        private void OnDrawingModeChanged(object sender, EventArgs e)
         {
-            LogHelper.WriteLogToFile($"示例插件收到页面变更事件，当前页面: {PluginService.CurrentPageIndex + 1}");
-            
-            // 可以在这里执行一些页面相关的操作
-            if (_isDrawingMode)
+            if (IsEnabled)
             {
-                PluginService.ShowNotification($"已切换到第 {PluginService.CurrentPageIndex + 1} 页", NotificationType.Info);
+                var newMode = GetService.CurrentDrawingMode;
+                LogHelper.WriteLogToFile($"绘制模式已变更为: {newMode}");
             }
+        }
+
+        #endregion
+
+        #region 私有方法
+
+        /// <summary>
+        /// 加载配置
+        /// </summary>
+        private void LoadConfig()
+        {
+            try
+            {
+                // 示例：从设置中加载配置
+                var isEnabled = GetSetting("PluginTemplateV2.Enabled", false);
+                var customSetting = GetSetting("PluginTemplateV2.CustomSetting", "默认值");
+
+                LogHelper.WriteLogToFile($"加载配置: Enabled={isEnabled}, CustomSetting={customSetting}");
+            }
+            catch (Exception ex)
+            {
+                LogHelper.WriteLogToFile($"加载配置时出错: {ex.Message}", LogHelper.LogType.Error);
+            }
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// 插件设置控件 V2
+    /// </summary>
+    public class PluginTemplateV2SettingsControl : UserControl
+    {
+        public PluginTemplateV2SettingsControl()
+        {
+            // 创建设置界面布局
+            var panel = new StackPanel
+            {
+                Margin = new Thickness(10)
+            };
+
+            // 添加标题
+            panel.Children.Add(new TextBlock
+            {
+                Text = "插件模板 V2 设置",
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+
+            // 添加说明文字
+            panel.Children.Add(new TextBlock
+            {
+                Text = "这是一个使用优化接口结构的插件模板。\n展示了如何分类使用不同的服务接口：\n• IGetService - 获取状态和信息\n• IWindowService - 窗口和用户交互\n• IActionService - 执行操作",
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 10)
+            });
+
+            // 添加功能按钮
+            var demoButton = new Button
+            {
+                Content = "演示服务使用",
+                Margin = new Thickness(0, 5, 0, 5),
+                Padding = new Thickness(10, 5, 10, 5)
+            };
+
+            demoButton.Click += (s, e) =>
+            {
+                var plugin = PluginManager.Instance.Plugins.OfType<PluginTemplateV2>().FirstOrDefault();
+                plugin?.DemonstrateServiceUsage();
+            };
+
+            panel.Children.Add(demoButton);
+
+            // 设置控件内容
+            Content = panel;
         }
     }
 } 
